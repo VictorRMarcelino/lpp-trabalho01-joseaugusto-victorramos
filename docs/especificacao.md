@@ -24,9 +24,9 @@
 | `vila.iniciada` | Servidor | Todos | A fase da vila muda de "aguardando" para "aberta" e os temporizadores de produção são iniciados.
 | `construcao.solicitada` | Jogador | Servidor | É um pedido de construção; nenhum estado é alterado diretamente neste momento.
 | `construcao.iniciada` | Servidor | Todos | O custo em farinha é debitado, um trabalhador é ocupado e o canteiro de obras surge na tela.
-| `operacao.recusada` | Servidor | Só quem pediu | Nenhum estado global muda; apenas o cliente solicitante recebe o aviso de erro (ex: falta de farinha ou sem padeiros livres)[cite: 4, 5]. |
+| `operacao.recusada` | Servidor | Só quem pediu | Nenhum estado global muda; apenas o cliente solicitante recebe o aviso de erro (ex: falta de farinha ou sem padeiros livres)
 | `recurso.produzido` | Servidor | Todos | O estoque de farinha da padaria aumenta de acordo com a taxa de produção.
-| `construcao.concluida` | Servidor | Todos | A obra passa de canteiro para construída, o trabalhador é liberado e a produção de pães/farinha é bonificada[cite: 4, 5]. |
+| `construcao.concluida` | Servidor | Todos | A obra passa de canteiro para construída, o trabalhador é liberado e a produção de pães/farinha é bonificada
 | `vila.encerrada` | Servidor | Todos | A fase da vila muda para "encerrada", parando a produção automática e bloqueando novas construções
 
 ## 3. Cenários de teste (Dado / Quando / Então, escritos com eventos)
