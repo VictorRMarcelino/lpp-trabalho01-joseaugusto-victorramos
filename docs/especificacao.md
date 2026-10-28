@@ -9,13 +9,15 @@
 ## 1. Regras da vila
 
 - **Recurso primário e recurso refinado:** Farinha → Pães
-- **Construções da vila:** Moinho, Forno e Vitrine
+- **Construções da vila:** Moinho e Forno
 - **Trabalhadores:** Padeiros
 - **Custo de uma construção:** 50 sacas de farinha
 - **Tempo da obra:** 8 segundos até a conclusão da construção
+- **Tempo e Quantidade de pães processados:** 5 segundos para processar 2 pães
 - **Limite de trabalhadores:** 2 padeiros ativos simultaneamente
-- **Intervalo e quantidade da produção automática:** A cada 5 segundos, o moinho produz 10 sacas de farinha
+- **Intervalo e quantidade da produção automática:** A cada 5 segundos, o moinho produz 10 sacas de farinha e cada construção produz 2 pães
 - **O que muda quando uma obra termina:** O canteiro de obras se transforma em uma construção funcional da padaria, o trabalhador retorna a ficar livre e a capacidade de produção de pães aumenta. Além disso, o pão amanhecido perde o valor caso não seja processado a tempo.
+- **Pão amanhecido:** O canteiro de obras se transforma em uma construção funcional da padaria, o trabalhador retorna a ficar livre e a capacidade de produção de pães aumenta. Além disso, o pão amanhecido perde o valor caso não seja processado a tempo.
 
 ## 2. Eventos
 
@@ -28,6 +30,7 @@
 | `recurso.produzido` | Servidor | Todos | O estoque de farinha da padaria aumenta de acordo com a taxa de produção.
 | `construcao.concluida` | Servidor | Todos | A obra passa de canteiro para construída, o trabalhador é liberado e a produção de pães/farinha é bonificada
 | `vila.encerrada` | Servidor | Todos | A fase da vila muda para "encerrada", parando a produção automática e bloqueando novas construções
+| `pao.processado` | Jogador | Todos | Um padeiro é alocado para o processamento dos pães, seguindo o tempo e quantidade definido.
 
 ## 3. Cenários de teste (Dado / Quando / Então, escritos com eventos)
 

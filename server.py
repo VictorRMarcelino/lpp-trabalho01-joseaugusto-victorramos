@@ -9,12 +9,15 @@ app = socketio.ASGIApp(sio, static_files={
 CUSTO = 50     # farinhas por construção
 TEMPO_OBRA = 8 # segundos até a obra terminar
 INTERVALO = 5  # segundos entre as produções
+TEMPO_PROCESSAMENTO = 5 # segundo para processar X pães
+PAES_POR_PROCESSAMENTO = 2 # quantidade de pães processados a cada TEMPO_PROCESSAMENTO
 
 estado = {
     "fase": "aguardando",     # aguardando -> aberta -> encerrada
     "farinhas": 150,
-    "trabalhadores": 0,       # ocupados agora
-    "limite": 2,              # máximo de trabalhadores
+    "paes": 0,                # pães produzidos
+    "padeiros": 0,       # ocupados agora
+    "limite": 2,              # máximo de padeiros
     "producao": 10,           # farinhas produzidas a cada INTERVALO
     "intervalo": INTERVALO,
     "tempo_obra": TEMPO_OBRA,
@@ -72,7 +75,7 @@ async def construir(sid, dados=None):
         motivo = "A temporada não está aberta"
     elif estado["farinhas"] < CUSTO:
         motivo = "Farinhas insuficientes"
-    elif estado["trabalhadores"] >= estado["limite"]:
+    elif estado["padeiros"] >= estado["limite"]:
         motivo = "Sem trabalhador livre"
     else:
         motivo = None
@@ -82,13 +85,12 @@ async def construir(sid, dados=None):
         return
 
     estado["farinhas"] -= CUSTO
-    estado["trabalhadores"] += 1
+    estado["padeiros"] += 1
     estado["em_obra"] += 1
     nome = jogadores[sid]["nome"]
     await sio.emit("construcao.iniciada", fato(pedido, por=nome))
     sio.start_background_task(obra, nome)  
     
-
 async def producao():
     while estado["fase"] == "aberta":
         await sio.sleep(INTERVALO)
@@ -102,7 +104,7 @@ async def obra(nome):
     await sio.sleep(TEMPO_OBRA)
     if estado["fase"] != "aberta":
         return
-    estado["trabalhadores"] -= 1
+    estado["padeiros"] -= 1
     estado["em_obra"] -= 1
     estado["concluidas"] += 1
     estado["producao"] += 5       # cada obra concluída aumenta a produção
