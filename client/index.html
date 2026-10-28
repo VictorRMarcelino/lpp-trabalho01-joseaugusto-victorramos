@@ -58,7 +58,7 @@
     <div id="jogo"></div>
 
     <section class="painel">
-      <p>🪵 Toras: <strong>{{ estado.toras }}</strong> (+{{ porMinuto }}/min)</p>
+      <p>🪵 Farinhas: <strong>{{ estado.farinhas }}</strong> (+{{ porMinuto }}/min)</p>
       <p>👷 Trabalhadores: {{ estado.trabalhadores }}/{{ estado.limite }}
         <progress :value="estado.trabalhadores" :max="estado.limite"></progress></p>
       <p>🏠 Construções: {{ estado.concluidas }} concluídas, {{ estado.em_obra }} em obra</p>
@@ -69,7 +69,7 @@
         <button @click="abrirVila">Abrir temporada</button>
         <button @click="encerrarVila">Encerrar temporada</button>
       </template>
-      <button v-else @click="construir">🔨 Construir (custo {{ estado.custo }} toras)</button>
+      <button v-else @click="construir">🔨 Construir (custo {{ estado.custo }} farinhas)</button>
     </section>
 
     <ul class="avisos">
@@ -251,7 +251,7 @@
       const papel = ref("");
       const conectado = ref(false);
       const estado = reactive({
-        fase: "aguardando", toras: 0, trabalhadores: 0, limite: 0,
+        fase: "aguardando", farinhas: 0, trabalhadores: 0, limite: 0,
         producao: 0, intervalo: 0, tempo_obra: 0, custo: 0, concluidas: 0, em_obra: 0,
       });
       const avisos = ref([]);
@@ -280,7 +280,7 @@
         if (!d) return "";
         const { estado: e, causa, ...resto } = d;
         const partes = Object.entries(resto).map(([k, v]) => k + ": " + v);
-        if (e) partes.push("toras " + e.toras + ", trabalhadores " + e.trabalhadores + "/" + e.limite);
+        if (e) partes.push("farinhas " + e.farinhas + ", trabalhadores " + e.trabalhadores + "/" + e.limite);
         return partes.join(" · ");
       }
       function registrar(sentido, nome, dados, reacao = "") {
@@ -333,7 +333,7 @@
           jogo.recusado(d.motivo);
         });
 
-        ouvir("recurso.produzido", "atualiza as toras e mostra o +N", (d) => {
+        ouvir("recurso.produzido", "atualiza as farinhas e mostra o +N", (d) => {
           atualizar(d);
           jogo.recursoProduzido(d.estado);
         });

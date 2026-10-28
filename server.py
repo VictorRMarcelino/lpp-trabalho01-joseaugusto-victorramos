@@ -6,16 +6,16 @@ app = socketio.ASGIApp(sio, static_files={
     "/assets": "client/assets",      # mapa, tileset e sprites da vila
 })
 
-CUSTO = 50     # toras por construção
+CUSTO = 50     # farinhas por construção
 TEMPO_OBRA = 8 # segundos até a obra terminar
 INTERVALO = 5  # segundos entre as produções
 
 estado = {
     "fase": "aguardando",     # aguardando -> aberta -> encerrada
-    "toras": 150,
+    "farinhas": 150,
     "trabalhadores": 0,       # ocupados agora
     "limite": 2,              # máximo de trabalhadores
-    "producao": 10,           # toras produzidas a cada INTERVALO
+    "producao": 10,           # farinhas produzidas a cada INTERVALO
     "intervalo": INTERVALO,
     "tempo_obra": TEMPO_OBRA,
     "custo": CUSTO,
@@ -70,8 +70,8 @@ async def construir(sid, dados=None):
     # assim, dois pedidos simultâneos são decididos um de cada vez.
     if estado["fase"] != "aberta":
         motivo = "A temporada não está aberta"
-    elif estado["toras"] < CUSTO:
-        motivo = "Toras insuficientes"
+    elif estado["farinhas"] < CUSTO:
+        motivo = "Farinhas insuficientes"
     elif estado["trabalhadores"] >= estado["limite"]:
         motivo = "Sem trabalhador livre"
     else:
@@ -81,7 +81,7 @@ async def construir(sid, dados=None):
         await recusar(sid, motivo, pedido)    # só quem pediu recebe
         return
 
-    estado["toras"] -= CUSTO
+    estado["farinhas"] -= CUSTO
     estado["trabalhadores"] += 1
     estado["em_obra"] += 1
     nome = jogadores[sid]["nome"]
@@ -94,7 +94,7 @@ async def producao():
         await sio.sleep(INTERVALO)
         if estado["fase"] != "aberta":
             break
-        estado["toras"] += estado["producao"]
+        estado["farinhas"] += estado["producao"]
         await sio.emit("recurso.produzido", fato("temporizador"))
 
 
