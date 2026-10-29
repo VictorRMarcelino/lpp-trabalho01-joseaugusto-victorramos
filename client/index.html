@@ -59,10 +59,18 @@
 
     <section class="painel">
       <p>🪵 Farinhas: <strong>{{ estado.farinhas }}</strong> (+{{ porMinuto }}/min)</p>
-      <p>🪵 Pães: <strong>{{ estado.paes }}</strong> (+{{ porMinuto }}/min)</p>
+      <p>🥖 Pães: <strong>{{ estado.paes }}/{{ estado.paes_maximos }}</strong>
+        <span v-if="estado.paes_em_producao">({{ estado.paes_em_producao }} em produção)</span></p>
+      <ul v-if="estado.paes_itens.length">
+        <li v-for="pao in estado.paes_itens" :key="pao.id">
+          Pão #{{ pao.id }} — {{ pao.estado }} — {{ formatarCentavos(pao.valor_centavos) }}
+        </li>
+      </ul>
+      <p>🪙 Moedas: <strong>{{ formatarMoedas(estado.moedas) }}</strong></p>
       <p>👷 Padeiros: {{ estado.padeiros }}/{{ estado.limite }}
         <progress :value="estado.padeiros" :max="estado.limite"></progress></p>
-      <p>🏠 Fornos: {{ estado.concluidas }} concluídas, {{ estado.em_obra }} em obra</p>
+      <p>🏠 Fornos: {{ estado.concluidas }} concluídos,
+        {{ estado.concluidas - estado.fornos_ocupados }} livres, {{ estado.em_obra }} em obra</p>
     </section>
 
     <section>
@@ -70,7 +78,14 @@
         <button @click="abrirVila">Abrir temporada</button>
         <button @click="encerrarVila">Encerrar temporada</button>
       </template>
-      <button v-else @click="construir">🔨 Construir (custo {{ estado.custo }} farinhas)</button>
+      <button v-else @click="construir">🔨 Construir (custo {{ estado.custo }} moedas)</button>
+      <button @click="produzirPao" :disabled="estado.fase !== 'aberta'">
+        🥖 Produzir pão (10 farinhas)
+      </button>
+      <button @click="venderPaes"
+        :disabled="estado.fase !== 'aberta' || estado.paes === 0">
+        🪙 Vender pães ({{ estado.paes }})
+      </button>
     </section>
 
     <ul class="avisos">
@@ -199,7 +214,7 @@
       }
       obraIniciada(estado) {                  // construcao.iniciada
         this.criarObra(estado.tempo_obra * 1000);
-        this.flutuar("-" + estado.custo + " 🪵", this.acampamento.x, this.acampamento.y, "#b00020");
+        this.flutuar("-" + estado.custo + " 🪙", this.acampamento.x, this.acampamento.y, "#b00020");
       }
       obraConcluida(estado) {                 // construcao.concluida
         const obra = this.obras.shift();
@@ -253,6 +268,8 @@
       const conectado = ref(false);
       const estado = reactive({
         fase: "aguardando", farinhas: 0, paes: 0,padeiros: 0, limite: 0,
+        paes_em_producao: 0, paes_itens: [], paes_maximos: 6, moedas: 0,
+        fornos_ocupados: 0, producoes_paes: [],
         producao: 0, intervalo: 0, tempo_obra: 0, custo: 0, concluidas: 0, em_obra: 0,
       });
       const avisos = ref([]);
@@ -270,6 +287,17 @@
       function avisar(texto, tipo = "info") {
         avisos.value.unshift({ texto, tipo });
         avisos.value = avisos.value.slice(0, 6);
+      }
+
+      function formatarMoedas(valor) {
+        return Number(valor || 0).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+      }
+
+      function formatarCentavos(valor) {
+        return formatarMoedas(Number(valor || 0) / 100);
       }
 
       function atualizar(d) {
@@ -345,6 +373,33 @@
           jogo.obraConcluida(d.estado);
         });
 
+        ouvir("pao.producao_iniciada", "reserva padeiro, forno e farinha", (d) => {
+          atualizar(d);
+          avisar(d.por + " iniciou a produção de um pão");
+        });
+
+        ouvir("pao.produzido", "adiciona um pão fresco ao estoque", (d) => {
+          atualizar(d);
+          avisar("Um pão ficou pronto por R$ 5,00", "ok");
+        });
+
+        ouvir("paes.producao_cancelada", "libera recursos e devolve farinha", (d) => {
+          atualizar(d);
+          avisar("Produções de pão canceladas; farinha devolvida.", "erro");
+        });
+
+        ouvir("pao.amanhecido", "marca o pão como amanhecido", (d) => {
+          atualizar(d);
+          avisar("Um pão amanheceu.");
+        });
+
+        ouvir("pao.valor_reduzido", "atualiza o valor do pão amanhecido", atualizar);
+
+        ouvir("paes.vendidos", "credita o valor dos pães vendidos", (d) => {
+          atualizar(d);
+          avisar("Pães vendidos por " + formatarCentavos(d.valor_total_centavos), "ok");
+        });
+
         ouvir("vila.encerrada", "escurece a vila e bloqueia novas ações", (d) => {
            atualizar(d);
            avisar("Temporada encerrada.");
@@ -361,12 +416,19 @@
       function construir() {
         pedir("construcao.solicitada");
       }
+      function produzirPao() {
+        pedir("pao.produzir");
+      }
+      function venderPaes() {
+        pedir("pao.vender");
+      }
       function encerrarVila() {
         pedir("vila.encerramento_solicitado");
       }
 
       return { nome, papel, conectado, estado, avisos, eventosVisiveis, contadores, ocultarProducao, porMinuto,
-               entrar, abrirVila, construir, encerrarVila };
+               entrar, abrirVila, construir, produzirPao, venderPaes, encerrarVila,
+               formatarMoedas, formatarCentavos };
     }
   }).mount("#app");
 </script>
