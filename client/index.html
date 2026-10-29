@@ -58,7 +58,7 @@
     <div id="jogo"></div>
 
     <section class="painel">
-      <p>🪵 Farinhas: <strong>{{ estado.farinhas }}</strong> (+{{ porMinuto }}/min)</p>
+      <p>🍚 Farinhas: <strong>{{ estado.farinhas }}</strong> (+{{ porMinuto }}/min)</p>
       <p>🥖 Pães: <strong>{{ estado.paes }}/{{ estado.paes_maximos }}</strong>
         <span v-if="estado.paes_em_producao">({{ estado.paes_em_producao }} em produção)</span></p>
       <ul v-if="estado.paes_itens.length">
@@ -66,7 +66,7 @@
           Pão #{{ pao.id }} — {{ pao.estado }} — {{ formatarCentavos(pao.valor_centavos) }}
         </li>
       </ul>
-      <p>🪙 Moedas: <strong>{{ formatarMoedas(estado.moedas) }}</strong></p>
+      <p>💰 Moedas: <strong>{{ formatarMoedas(estado.moedas) }}</strong></p>
       <p>👷 Padeiros: {{ estado.padeiros }}/{{ estado.limite }}
         <progress :value="estado.padeiros" :max="estado.limite"></progress></p>
       <p>🏠 Fornos: {{ estado.concluidas }} concluídos,
