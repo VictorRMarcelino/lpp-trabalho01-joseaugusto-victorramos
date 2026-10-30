@@ -67,7 +67,7 @@
         </li>
       </ul>
       <p>💰 Moedas: <strong>{{ formatarMoedas(estado.moedas) }}</strong></p>
-      <p>👷 Padeiros: {{ estado.padeiros }}/{{ estado.limite }}
+      <p>👨‍🍳 Padeiros: {{ estado.padeiros }}/{{ estado.limite }}
         <progress :value="estado.padeiros" :max="estado.limite"></progress></p>
       <p>🏠 Fornos: {{ estado.concluidas }} concluídos,
         {{ estado.concluidas - estado.fornos_ocupados }} livres, {{ estado.em_obra }} em obra</p>
