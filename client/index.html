@@ -59,6 +59,7 @@
 
     <section class="painel">
       <p>🍚 Farinhas: <strong>{{ estado.farinhas }}</strong> (+{{ porMinuto }}/min)</p>
+      <p>⚙️ Moinho: nível <strong>{{ estado.nivel_moinho }}</strong> — {{ estado.producao }} sacas a cada {{ estado.intervalo }} segundos</p>
       <p>🥖 Pães: <strong>{{ estado.paes }}/{{ estado.paes_maximos }}</strong>
         <span v-if="estado.paes_em_producao">({{ estado.paes_em_producao }} em produção)</span></p>
       <ul v-if="estado.paes_itens.length">
@@ -77,6 +78,11 @@
       <template v-if="papel === 'mestre'">
         <button @click="abrirVila">Abrir temporada</button>
         <button @click="encerrarVila">Encerrar temporada</button>
+        <button v-if="estado.nivel_moinho < 5" @click="aprimorarMoinho"
+          :disabled="estado.fase !== 'aberta' || Number(estado.moedas) < custoUpgradeMoinho">
+          ⚙️ Aprimorar moinho ({{ custoUpgradeMoinho }} moedas)
+        </button>
+        <button v-else disabled>⚙️ Moinho no nível máximo</button>
       </template>
       <button v-else @click="construir">🔨 Construir (custo {{ estado.custo }} moedas)</button>
       <button @click="produzirPao" :disabled="estado.fase !== 'aberta'">
@@ -227,6 +233,9 @@
       recursoProduzido(estado) {              // recurso.produzido
         this.flutuar("+" + estado.producao + " 🌾", this.acampamento.x + 26, this.acampamento.y, "#1b5e20");
       }
+      moinhoNivelAtualizado(estado) {         // moinho.nivel_atualizado
+        this.flutuar("Moinho nível " + estado.nivel_moinho, this.acampamento.x, this.acampamento.y - 16, "#1b5e20");
+      }
       recusado(motivo) {                      // operacao.recusada (só quem pediu)
         this.cameras.main.shake(180, 0.006);
         this.flutuar("✋ " + motivo, this.larg / 2, this.alt - 28, "#b00020");
@@ -250,6 +259,7 @@
       obraIniciada: (...a) => chamar("obraIniciada", ...a),
       obraConcluida: (...a) => chamar("obraConcluida", ...a),
       recursoProduzido: (...a) => chamar("recursoProduzido", ...a),
+      moinhoNivelAtualizado: (...a) => chamar("moinhoNivelAtualizado", ...a),
       recusado: (...a) => chamar("recusado", ...a),
       vilaEncerrada: (...a) => chamar("vilaEncerrada", ...a),
     };
@@ -271,7 +281,8 @@
         fase: "aguardando", farinhas: 0, paes: 0,padeiros: 0, limite: 0,
         paes_em_producao: 0, paes_itens: [], paes_maximos: 6, moedas: 0,
         fornos_ocupados: 0, producoes_paes: [],
-        producao: 0, intervalo: 0, tempo_obra: 0, custo: 0, concluidas: 0, em_obra: 0,
+        producao: 0, intervalo: 5, tempo_obra: 0, custo: 0, concluidas: 0, em_obra: 0,
+        nivel_moinho: 1,
       });
       const avisos = ref([]);
       const eventos = ref([]);              // linha do tempo do painel de eventos
@@ -284,6 +295,7 @@
 
       const porMinuto = computed(() =>
         estado.intervalo ? Math.round(estado.producao * 60 / estado.intervalo) : 0);
+      const custoUpgradeMoinho = computed(() => Number(estado.nivel_moinho || 1) * 10);
 
       function avisar(texto, tipo = "info") {
         avisos.value.unshift({ texto, tipo });
@@ -352,6 +364,12 @@
           jogo.vilaIniciada();
         });
 
+        ouvir("moinho.nivel_atualizado", "atualiza nível, moedas e produção do moinho", (d) => {
+          atualizar(d);
+          avisar("Moinho aprimorado para o nível " + d.estado.nivel_moinho + " por " + formatarMoedas(d.custo), "ok");
+          jogo.moinhoNivelAtualizado(d.estado);
+        });
+
         ouvir("construcao.iniciada", "mostra o canteiro de obras", (d) => {
           atualizar(d);
           avisar(d.por + " iniciou uma obra");
@@ -370,7 +388,7 @@
 
         ouvir("construcao.concluida", "transforma o canteiro em casa", (d) => {
           atualizar(d);
-          avisar("Obra de " + d.por + " concluída! A produção aumentou.", "ok");
+          avisar("Obra de " + d.por + " concluída!", "ok");
           jogo.obraConcluida(d.estado);
         });
 
@@ -417,6 +435,9 @@
       function construir() {
         pedir("construcao.solicitada");
       }
+      function aprimorarMoinho() {
+        pedir("moinho.nivel_solicitado");
+      }
       function produzirPao() {
         pedir("pao.produzir");
       }
@@ -428,7 +449,7 @@
       }
 
       return { nome, papel, conectado, estado, avisos, eventosVisiveis, contadores, ocultarProducao, porMinuto,
-               entrar, abrirVila, construir, produzirPao, venderPaes, encerrarVila,
+               custoUpgradeMoinho, entrar, abrirVila, construir, aprimorarMoinho, produzirPao, venderPaes, encerrarVila,
                formatarMoedas, formatarCentavos };
     }
   }).mount("#app");

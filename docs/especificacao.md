@@ -16,10 +16,13 @@
 - **Valor por pão** 5
 - **Custo da obra:** 50 moedas
 - **Tempo da obra:** 8 segundos até a conclusão da construção
+- **Nível máximo do moinho:** 5
+- **Custo para subir o nível do moinho:** nível do moinho * 10
+- **Produção de farinha:** 5 farinhas de base + (5 * nível do moinho)
 - **Tempo de produção do pão:** 4 segundos até o pão ser produzido por um padeiro em um forno livre
 - **Limite de trabalhadores:** 2 padeiros ativos simultaneamente
-- **Intervalo e quantidade da produção automática:** A cada 5 segundos, o moinho produz 10 sacas de farinha.
-- **O que muda quando uma obra termina:** O canteiro de obras se transforma em uma construção funcional da padaria, o trabalhador retorna a ficar livre e a capacidade de produção de pães aumenta.
+- **Intervalo e quantidade da produção automática:** A cada 5 segundos, o moinho produz 5 + (5 * nível do moinho) sacas de farinha.
+- **O que muda quando uma obra termina:** O canteiro de obras se transforma em uma construção funcional da padaria, o trabalhador retorna a ficar livre.
 - **Pão amanhecido:** Ao completar 60 segundos sem venda desde o fim da produção, o pão se torna amanhecido. O primeiro desconto de 0,50 moeda ocorre após mais 10 segundos completos e se repete a cada 10 segundos; o valor mínimo é zero.
 - **Encerramento:** Pães em produção são cancelados quando o Mestre encerra a temporada; padeiro, forno e vaga são liberados e as 10 sacas de farinha debitadas são devolvidas. Vendas e novas produções ficam bloqueadas fora da temporada aberta.
 
@@ -27,12 +30,14 @@
 
 | Evento | Emite | Recebe | O que muda no estado |
 |---|---|---|---|
-| `vila.iniciada` | Servidor | Todos | A fase da vila muda de "aguardando" para "aberta" e os temporizadores de produção são iniciados.
+| `vila.iniciada` | Servidor | Todos | A fase da vila muda de "aguardando" para "aberta", o moinho inicia no nível 1 e os temporizadores de produção são iniciados.
 | `construcao.solicitada` | Jogador | Servidor | É um pedido de construção; nenhum estado é alterado diretamente neste momento.
 | `construcao.iniciada` | Servidor | Todos | O custo de 50 moedas é debitado, um trabalhador é ocupado e o canteiro de obras surge na tela.
 | `operacao.recusada` | Servidor | Só quem pediu | Nenhum estado global muda; apenas o cliente solicitante recebe o aviso de erro (ex: falta de farinha ou sem padeiros livres)
-| `recurso.produzido` | Servidor | Todos | O estoque de farinha da padaria aumenta de acordo com a taxa de produção.
-| `construcao.concluida` | Servidor | Todos | A obra passa de canteiro para construída, o trabalhador é liberado e a produção de pães/farinha é bonificada
+| `recurso.produzido` | Servidor | Todos | O estoque de farinha da padaria aumenta de acordo com a taxa de produção atual: 5 + (5 * nível do moinho) sacas por ciclo.
+| `construcao.concluida` | Servidor | Todos | A obra passa de canteiro para construída e o trabalhador é liberado; a conclusão não altera o nível do moinho nem bonifica a produção de farinha.
+| `moinho.nivel_solicitado` | Jogador | Servidor | Pedido para aprimorar o moinho; nenhum estado muda até ser validado.
+| `moinho.nivel_atualizado` | Servidor | Todos | Após validar Mestre, temporada aberta e moedas suficientes, o moinho sobe um nível, debita nível anterior * 10 moedas e atualiza a produção dos ciclos seguintes.
 | `vila.encerrada` | Servidor | Todos | A fase muda para "encerrada", parando a produção automática e bloqueando novas construções, produções de pão e vendas.
 | `pao.produzir` | Jogador | Servidor | Pedido para produzir um pão; nenhum estado muda até ser validado.
 | `pao.producao_iniciada` | Servidor | Todos | Debita 10 sacas de farinha e reserva um padeiro, um forno e uma vaga de pão.
@@ -50,6 +55,12 @@ Dado que a temporada da padaria está aberta e o estoque atual é de 20 sacas de
 
 ### Passagem do tempo
 Dado que a temporada da padaria está aberta, quando o temporizador do servidor atinge o intervalo estipulado de 5 segundos, então o servidor atualiza o estoque somando a produção automática e emite o evento `recurso.produzido` para todos os jogadores.
+
+### Aprimoramento do moinho
+Dado que a temporada está aberta e o Mestre tem moedas suficientes, quando emite `moinho.nivel_solicitado`, então o servidor debita o nível atual do moinho multiplicado por 10 moedas, eleva o nível em um e emite `moinho.nivel_atualizado` para todos; cada ciclo seguinte produz 5 + (5 * nível atual) sacas. Pedidos de outros jogadores, sem moedas suficientes, fora de temporada ou no nível máximo emitem `operacao.recusada` apenas ao solicitante e não alteram o estado.
+
+### Conclusão de construção
+Dado que uma obra termina, quando o servidor emite `construcao.concluida`, então libera o trabalhador e torna a construção funcional sem alterar o nível ou a quantidade de farinha produzida pelo moinho.
 
 ### Disputa entre dois jogadores
 Dado que a padaria possui apenas 1 vaga livre de trabalhador (padeiro), quando os jogadores A e B emitem `construcao.solicitada` exatamente ao mesmo tempo, então o servidor processa os pedidos sequencialmente, emitindo `construcao.iniciada` para o primeiro jogador que teve o pedido atendido e `operacao.recusada` (por falta de trabalhadores livres) para o segundo jogador.

@@ -27,6 +27,7 @@ class BreadProductionTests(unittest.IsolatedAsyncioTestCase):
             "fornos_ocupados": 0,
             "em_obra": 0,
             "moedas": 50,
+            "nivel_moinho": 1,
         })
         server.jogadores.clear()
         server._paes_em_andamento.clear()
@@ -269,6 +270,193 @@ class BreadProductionTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(server._moedas_centavos, 0)
         self.assertEqual(server.estado["farinhas"], 150)
         self.assertEqual(server.estado["padeiros"], 1)
+
+    async def test_opening_season_resets_mill_level_and_production(self):
+        server.estado.update({
+            "fase": "aguardando",
+            "nivel_moinho": 5,
+            "producao": 30,
+        })
+        server.jogadores["master"] = {"nome": "Ada", "papel": "mestre"}
+
+        await server.abrir_vila("master")
+
+        self.assertEqual(server.estado["nivel_moinho"], 1)
+        self.assertEqual(server.estado["producao"], 10)
+        self.assertEqual(server.estado["fase"], "aberta")
+        self.emit.assert_awaited_once()
+        self.assertEqual(self.emit.await_args.args[0], "vila.iniciada")
+        self.assertEqual(self.emit.await_args.args[1]["estado"]["nivel_moinho"], 1)
+
+    async def test_mill_upgrades_charge_current_level_and_set_production_rate(self):
+        server.estado["moedas"] = 100
+        server._moedas_centavos = 10000
+        server.jogadores["master"] = {"nome": "Ada", "papel": "mestre"}
+
+        for expected_level, expected_cost, expected_rate in (
+            (2, 10, 15),
+            (3, 20, 20),
+            (4, 30, 25),
+            (5, 40, 30),
+        ):
+            with self.subTest(level=expected_level):
+                await server.aprimorar_moinho("master")
+
+                self.assertEqual(server.estado["nivel_moinho"], expected_level)
+                self.assertEqual(server.estado["producao"], expected_rate)
+                self.assertEqual(
+                    server.estado["moedas"],
+                    100 - sum((10, 20, 30, 40)[:expected_level - 1]),
+                )
+                self.assertEqual(
+                    server._moedas_centavos,
+                    10000 - sum((10, 20, 30, 40)[:expected_level - 1]) * 100,
+                )
+                fact = next(
+                    call for call in reversed(self.emit.await_args_list)
+                    if call.args[0] == "moinho.nivel_atualizado"
+                )
+                self.assertEqual(fact.args[1]["custo"], expected_cost)
+                self.assertEqual(
+                    fact.args[1]["estado"]["nivel_moinho"], expected_level
+                )
+                self.assertEqual(
+                    fact.args[1]["estado"]["producao"], expected_rate
+                )
+
+    async def test_mill_upgrade_accepts_exact_balance(self):
+        server.estado.update({"moedas": 10, "nivel_moinho": 1, "producao": 10})
+        server._moedas_centavos = 1000
+        server.jogadores["master"] = {"nome": "Ada", "papel": "mestre"}
+
+        await server.aprimorar_moinho("master")
+
+        self.assertEqual(server.estado["moedas"], 0)
+        self.assertEqual(server._moedas_centavos, 0)
+        self.assertEqual(server.estado["nivel_moinho"], 2)
+
+    async def test_invalid_mill_upgrades_are_refused_without_state_change(self):
+        cases = [
+            (
+                "non-master",
+                "player",
+                {"fase": "aberta", "nivel_moinho": 1, "moedas": 50},
+                5000,
+                "Só o Mestre pode aprimorar o moinho",
+            ),
+            (
+                "insufficient-coins",
+                "master",
+                {"fase": "aberta", "nivel_moinho": 2, "moedas": 19},
+                1900,
+                "Moedas insuficientes",
+            ),
+            (
+                "closed-season",
+                "master",
+                {"fase": "encerrada", "nivel_moinho": 1, "moedas": 50},
+                5000,
+                "A temporada não está aberta",
+            ),
+            (
+                "maximum-level",
+                "master",
+                {"fase": "aberta", "nivel_moinho": 5, "moedas": 50},
+                5000,
+                "O moinho já está no nível máximo",
+            ),
+        ]
+        server.jogadores["master"] = {"nome": "Ada", "papel": "mestre"}
+        server.jogadores["player"] = {"nome": "Lin", "papel": "jogador"}
+
+        for name, sid, changes, balance, expected_reason in cases:
+            with self.subTest(case=name):
+                server.estado.update({
+                    "fase": "aberta",
+                    "nivel_moinho": 1,
+                    "producao": 10,
+                    "moedas": 50,
+                })
+                server.estado.update(changes)
+                server._moedas_centavos = balance
+                before = copy.deepcopy(server.estado)
+                self.emit.reset_mock()
+
+                await server.aprimorar_moinho(sid)
+
+                self.assertEqual(server.estado, before)
+                self.assertEqual(server._moedas_centavos, balance)
+                self.emit.assert_awaited_once_with(
+                    "operacao.recusada",
+                    {
+                        "motivo": expected_reason,
+                        "causa": "moinho.nivel_solicitado",
+                    },
+                    to=sid,
+                )
+
+    async def test_concurrent_mill_upgrades_cannot_exceed_maximum_level(self):
+        server.estado.update({
+            "nivel_moinho": 4,
+            "producao": 25,
+            "moedas": 40,
+        })
+        server._moedas_centavos = 4000
+        server.jogadores["master"] = {"nome": "Ada", "papel": "mestre"}
+
+        await asyncio.gather(
+            server.aprimorar_moinho("master"),
+            server.aprimorar_moinho("master"),
+        )
+
+        self.assertEqual(server.estado["nivel_moinho"], 5)
+        self.assertEqual(server.estado["producao"], 30)
+        self.assertEqual(server.estado["moedas"], 0)
+        self.assertEqual(self.emit.await_count, 2)
+        self.assertEqual(
+            [call.args[0] for call in self.emit.await_args_list],
+            ["moinho.nivel_atualizado", "operacao.recusada"],
+        )
+
+    async def test_flour_cycle_uses_current_mill_rate(self):
+        server.estado.update({
+            "fase": "aberta",
+            "farinhas": 0,
+            "nivel_moinho": 3,
+            "producao": 20,
+        })
+
+        async def close_after_resource_event(event, *_args, **_kwargs):
+            if event == "recurso.produzido":
+                server.estado["fase"] = "encerrada"
+
+        self.emit.side_effect = close_after_resource_event
+
+        await server.producao()
+
+        self.assertEqual(server.estado["farinhas"], 20)
+        self.assertEqual(self.emit.await_args.args[0], "recurso.produzido")
+        self.assertEqual(self.emit.await_args.args[1]["estado"]["nivel_moinho"], 3)
+        self.assertEqual(
+            self.emit.await_args.args[1]["quantidade_produzida"], 20
+        )
+
+    async def test_construction_completion_does_not_increase_mill_production(self):
+        server.estado.update({
+            "fase": "aberta",
+            "nivel_moinho": 3,
+            "producao": 20,
+            "padeiros": 1,
+            "em_obra": 1,
+        })
+
+        await server.obra("Ada")
+
+        self.assertEqual(server.estado["nivel_moinho"], 3)
+        self.assertEqual(server.estado["producao"], 20)
+        self.assertEqual(server.estado["padeiros"], 0)
+        self.assertEqual(server.estado["concluidas"], 1)
+        self.assertEqual(self.emit.await_args.args[0], "construcao.concluida")
 
 
 if __name__ == "__main__":

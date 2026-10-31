@@ -13,6 +13,9 @@ app = socketio.ASGIApp(sio, static_files={
 CUSTO = 50     # moedas por construção
 TEMPO_OBRA = 8 # segundos até a obra terminar
 INTERVALO = 5  # segundos entre as produções
+NIVEL_INICIAL_MOINHO = 1
+NIVEL_MAXIMO_MOINHO = 5
+CUSTO_NIVEL_MOINHO = 10
 CUSTO_PAO = 10
 TEMPO_PRODUCAO_PAO = 4
 VALOR_PAO_CENTAVOS = 500
@@ -39,7 +42,8 @@ estado = {
     "concluidas": 0,
     "fornos_ocupados": 0,
     "em_obra": 0,
-    "moedas": 50
+    "moedas": 50,
+    "nivel_moinho": NIVEL_INICIAL_MOINHO
 }
 
 jogadores = {}                # sid -> {"nome": ..., "papel": ...}
@@ -191,10 +195,46 @@ async def abrir_vila(sid, dados=None):
     if estado["fase"] != "aguardando":
         await recusar(sid, "A temporada já foi aberta", pedido)
         return
+    estado["nivel_moinho"] = NIVEL_INICIAL_MOINHO
+    estado["producao"] = 5 + 5 * NIVEL_INICIAL_MOINHO
     estado["fase"] = "aberta"
     sio.start_background_task(producao)          
     _iniciar_agendador_envelhecimento()
     await sio.emit("vila.iniciada", fato(pedido))
+
+
+@sio.on("moinho.nivel_solicitado")
+async def aprimorar_moinho(sid, dados=None):
+    global _moedas_centavos
+    pedido = "moinho.nivel_solicitado"
+    jogador = jogadores.get(sid, {})
+    nivel_atual = estado["nivel_moinho"]
+    custo = nivel_atual * CUSTO_NIVEL_MOINHO
+
+    if jogador.get("papel") != "mestre":
+        motivo = "Só o Mestre pode aprimorar o moinho"
+    elif estado["fase"] != "aberta":
+        motivo = "A temporada não está aberta"
+    elif nivel_atual >= NIVEL_MAXIMO_MOINHO:
+        motivo = "O moinho já está no nível máximo"
+    elif _moedas_centavos < custo * 100:
+        motivo = "Moedas insuficientes"
+    else:
+        motivo = None
+
+    if motivo:
+        await recusar(sid, motivo, pedido)
+        return
+
+    _moedas_centavos -= custo * 100
+    estado["moedas"] = _moedas_centavos / 100
+    estado["nivel_moinho"] = nivel_atual + 1
+    estado["producao"] = 5 + 5 * estado["nivel_moinho"]
+    nome = jogador.get("nome", "Anônimo")
+    await sio.emit(
+        "moinho.nivel_atualizado",
+        fato(pedido, custo=custo, por=nome),
+    )
 
 
 @sio.on("construcao.solicitada")
@@ -229,8 +269,12 @@ async def producao():
         await sio.sleep(INTERVALO)
         if estado["fase"] != "aberta":
             break
-        estado["farinhas"] += estado["producao"]
-        await sio.emit("recurso.produzido", fato("temporizador"))
+        quantidade = estado["producao"]
+        estado["farinhas"] += quantidade
+        await sio.emit(
+            "recurso.produzido",
+            fato("temporizador", quantidade_produzida=quantidade),
+        )
 
 
 async def obra(nome):
@@ -240,7 +284,6 @@ async def obra(nome):
     estado["padeiros"] -= 1
     estado["em_obra"] -= 1
     estado["concluidas"] += 1
-    estado["producao"] += 5       # cada obra concluída aumenta a produção
     causa = "construcao.iniciada (temporizador)"
     await sio.emit("construcao.concluida", fato(causa, por=nome))
 
