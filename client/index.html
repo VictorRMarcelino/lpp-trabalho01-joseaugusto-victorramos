@@ -84,14 +84,16 @@
         </button>
         <button v-else disabled>⚙️ Moinho no nível máximo</button>
       </template>
-      <button v-else @click="construir">🔨 Construir (custo {{ estado.custo }} moedas)</button>
-      <button @click="produzirPao" :disabled="estado.fase !== 'aberta'">
-        🥖 Produzir pão (10 farinhas)
-      </button>
-      <button @click="venderPaes"
-        :disabled="estado.fase !== 'aberta' || estado.paes === 0">
-        💵 Vender pães ({{ estado.paes }})
-      </button>
+      <template v-else>
+        <button v-else @click="construir">🔨 Construir (custo {{ estado.custo }} moedas)</button>
+        <button @click="produzirPao" :disabled="estado.fase !== 'aberta'">
+          🥖 Produzir pão (10 farinhas)
+        </button>
+        <button @click="venderPaes"
+          :disabled="estado.fase !== 'aberta' || estado.paes === 0">
+          💵 Vender pães ({{ estado.paes }})
+        </button>
+      </template>
     </section>
 
     <ul class="avisos">
