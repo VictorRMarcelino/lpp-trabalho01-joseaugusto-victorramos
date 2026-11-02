@@ -16,6 +16,7 @@
 - **Valor por pão** 5
 - **Custo da obra:** 50 moedas
 - **Tempo da obra:** 8 segundos até a conclusão da construção
+- **Limite de obras:** 6
 - **Nível máximo do moinho:** 5
 - **Custo para subir o nível do moinho:** nível do moinho * 10
 - **Produção de farinha:** 5 farinhas de base + (5 * nível do moinho)

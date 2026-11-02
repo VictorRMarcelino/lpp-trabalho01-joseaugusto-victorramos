@@ -245,6 +245,8 @@ async def construir(sid, dados=None):
     # assim, dois pedidos simultâneos são decididos um de cada vez.
     if estado["fase"] != "aberta":
         motivo = "A temporada não está aberta"
+    elif estado["concluidas"] + estado["em_obra"] >= 6:
+        motivo = "Limite de construções atingido"
     elif _moedas_centavos < CUSTO * 100:
         motivo = "Moedas insuficientes"
     elif estado["padeiros"] >= estado["limite"]:
